@@ -102,7 +102,7 @@ function initCarousel() {
   var nodes = Array.prototype.slice.call(track.querySelectorAll("[data-carousel-slide]"));
 
   function slideW() {
-    return root.clientWidth * 0.42;
+    return root.clientWidth * 0.5;
   }
 
   var PER = {
