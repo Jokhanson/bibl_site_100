@@ -64,7 +64,6 @@
     client
       .from("comments")
       .select("*")
-      .eq("status", "approved")
       .order("created_at", { ascending: false })
       .limit(200)
       .then(function (res) {
