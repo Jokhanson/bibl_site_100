@@ -288,41 +288,40 @@ a:active { color: #6A1A0E; }
 }
 
 .carousel__viewport {
+  position: relative;
   overflow: hidden;
   padding-block: var(--space-6);
   border-radius: var(--radius-card);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 11%, black 89%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0%, black 11%, black 89%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
 }
 
 .carousel__track {
-  display: flex;
-  align-items: center;
-  transition: transform 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  perspective: 1200px;
 }
 
-.carousel__track.is-instant { transition: none; }
-
 .carousel__slide {
-  flex: 0 0 var(--carousel-sw);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
   min-width: 0;
+  margin: 0;
   background: var(--surface);
-  transition: transform 600ms cubic-bezier(0.22, 0.61, 0.36, 1),
-              opacity 600ms var(--ease),
-              filter 600ms var(--ease);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  box-shadow: 0 10px 34px rgba(28, 26, 23, 0.18);
+  transition: transform 800ms cubic-bezier(0.34, 1.2, 0.5, 1),
+              opacity 800ms var(--ease),
+              filter 800ms var(--ease),
+              box-shadow 400ms var(--ease);
+  will-change: transform, opacity;
 }
 
 .carousel__slide.is-active {
-  z-index: 2;
-  transform: scale(1.06);
-}
-
-.carousel__slide.is-prev,
-.carousel__slide.is-next {
-  z-index: 1;
-  transform: scale(0.76);
-  filter: brightness(0.66) saturate(0.85);
+  box-shadow: 0 20px 60px rgba(28, 26, 23, 0.3);
 }
 
 .carousel__media {

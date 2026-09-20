@@ -74,8 +74,10 @@ function initCarousel() {
   var total = N * 3;
   var pos = N;
   var index = 0;
-  var DURATION = 600;
+  var DURATION = 800;
   var timer = null;
+  var autoTimer = null;
+  var paused = false;
 
   if (totalEl) totalEl.textContent = String(N);
 
@@ -100,45 +102,56 @@ function initCarousel() {
   var nodes = Array.prototype.slice.call(track.querySelectorAll("[data-carousel-slide]"));
 
   function slideW() {
-    return root.clientWidth * 0.46;
+    return root.clientWidth * 0.42;
   }
 
-  function transformFor(p) {
+  var PER = {
+    0: { t: 0, s: 1, ry: 0, op: 1, z: 30, b: 1 },
+    1: { t: 0.85, s: 0.82, ry: 26, op: 0.72, z: 20, b: 0.8 },
+    2: { t: 1.7, s: 0.68, ry: 44, op: 0.4, z: 10, b: 0.6 }
+  }; // t — множитель ширины слайда; ry — угол боковых.
+
+  function nodeStyleAt(i) {
+    var off = i - pos; // смещение слайда от центра
+    var abs = Math.abs(off);
+    var cfg = null;
+    if (abs <= 2) {
+      cfg = PER[abs];
+    } else {
+      cfg = { t: 4, s: 0.55, ry: 52, op: 0, z: 1, b: 0.4 };
+    }
+    var dir = off < 0 ? -1 : 1;
     var w = slideW();
-    return "translate3d(" + (root.clientWidth / 2 - (p * w + w / 2)) + "px, 0, 0)";
+    var tx = cfg.t * w * dir;
+    var ry = -cfg.ry * dir;
+    if (reduceMotion.matches) ry = 0;
+    return {
+      transform: "translate(-50%, -50%) translate3d(" + tx + "px, 0, 0) scale(" + cfg.s + ") rotateY(" + ry + "deg)",
+      opacity: cfg.op,
+      zIndex: cfg.z,
+      filter: "brightness(" + cfg.b + ")",
+      active: off === 0,
+      visible: abs <= 2
+    };
   }
 
-  function centerPos(p) {
-    return root.clientWidth / 2 - (p * slideW() + slideW() / 2);
-  }
-
-  function setTransform(p, animate) {
-    track.style.transition = animate ? "" : "none";
-    track.style.transform = transformFor(p);
-    if (!animate) void track.offsetWidth;
-  }
-
-  function applyClasses(instant) {
+  function applyPose(instant) {
     nodes.forEach(function (node, i) {
-      var active = i === pos;
-      var prev = !active && inBounds(pos - 1) && i === pos - 1;
-      var next = !active && inBounds(pos + 1) && i === pos + 1;
-      var changed = active !== node.classList.contains("is-active") ||
-                    prev !== node.classList.contains("is-prev") ||
-                    next !== node.classList.contains("is-next");
-      if (instant && changed) node.style.transition = "none";
-      node.classList.toggle("is-active", active);
-      node.classList.toggle("is-prev", prev);
-      node.classList.toggle("is-next", next);
+      var p = nodeStyleAt(i);
+      if (instant) node.style.transition = "none";
+      node.style.transform = p.transform;
+      node.style.opacity = p.opacity;
+      node.style.zIndex = p.zIndex;
+      node.style.filter = p.filter;
+      node.style.pointerEvents = p.visible ? "" : "none";
+      node.classList.toggle("is-active", p.active);
     });
     if (instant) {
       void track.offsetWidth;
       nodes.forEach(function (node) { node.style.transition = ""; });
+    } else {
+      void track.offsetWidth;
     }
-  }
-
-  function inBounds(p) {
-    return p >= 0 && p < nodes.length;
   }
 
   function syncChrome() {
@@ -153,17 +166,16 @@ function initCarousel() {
   function normalize() {
     if (pos >= 2 * N) pos -= N;
     else if (pos < N) pos += N;
-    setTransform(pos, false);
-    applyClasses(true);
+    applyPose(true);
   }
 
   function fitWithinTrack(dir) {
     if (dir > 0 && pos > total - 2) {
-      setTransform(pos - N, false);
       pos -= N;
+      applyPose(true);
     } else if (dir < 0 && pos < 1) {
-      setTransform(pos + N, false);
       pos += N;
+      applyPose(true);
     }
   }
 
@@ -172,24 +184,15 @@ function initCarousel() {
   function scheduleSettle() {
     if (isInstant) { normalize(); return; }
     if (timer) { window.clearTimeout(timer); timer = null; }
-    timer = window.setTimeout(normalize, DURATION + 160);
+    timer = window.setTimeout(normalize, DURATION + 120);
   }
-
-  track.addEventListener("transitionend", function (e) {
-    if (timer && e.target === track && e.propertyName === "transform") {
-      window.clearTimeout(timer);
-      timer = null;
-      normalize();
-    }
-  });
 
   function go(dir) {
     if (timer) { window.clearTimeout(timer); timer = null; }
     fitWithinTrack(dir);
     pos += dir;
     index = (index + dir + N) % N;
-    setTransform(pos, !isInstant);
-    applyClasses();
+    applyPose(isInstant);
     syncChrome();
     scheduleSettle();
   }
@@ -201,8 +204,7 @@ function initCarousel() {
     while (pos < 0) pos += N;
     while (pos >= total) pos -= N;
     index = i;
-    setTransform(pos, !isInstant);
-    applyClasses();
+    applyPose(!isInstant);
     syncChrome();
     scheduleSettle();
   }
@@ -224,9 +226,17 @@ function initCarousel() {
     }
   }
 
-  // Позиция и видимость без анимации
-  setTransform(pos, false);
-  applyClasses(true);
+  // Клик по боковому слайду — перейти к нему
+  nodes.forEach(function (node, i) {
+    node.addEventListener("click", function () {
+      if (node.classList.contains("is-active")) return;
+      if (parseFloat(node.style.opacity || "0") <= 0.01) return;
+      jumpTo(i % N);
+    });
+  });
+
+  // Позиция без анимации
+  applyPose(true);
   syncChrome();
 
   // Клавиатура
@@ -236,38 +246,35 @@ function initCarousel() {
     if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
   });
 
-  // Свайпы / перетаскивание
-  var dragging = false;
-  var touchX = null;
+  // Автопрокрутка с паузой на hover / фокус
+  if (!reduceMotion.matches) {
+    function tick() {
+      if (paused) return;
+      if (!root.matches(":hover") && document.activeElement !== root) go(1);
+    }
+    autoTimer = window.setInterval(tick, 5000);
+    root.addEventListener("pointerenter", function () { paused = true; });
+    root.addEventListener("pointerleave", function () { paused = false; });
+    root.addEventListener("focusin", function () { paused = true; });
+    root.addEventListener("focusout", function () { paused = false; });
+  }
+
+  // Свайпы
+  var touchStartX = null;
 
   track.addEventListener("pointerdown", function (e) {
-    if (reduceMotion.matches) return;
-    if (timer) { window.clearTimeout(timer); timer = null; }
-    dragging = true;
-    touchX = e.clientX;
-    track.setPointerCapture(e.pointerId);
-  });
-
-  track.addEventListener("pointermove", function (e) {
-    if (!dragging) return;
-    var dx = e.clientX - touchX;
-    track.style.transition = "none";
-    track.style.transform = "translate3d(" + (centerPos(pos) + dx) + "px, 0, 0)";
+    touchStartX = e.clientX;
+    try { track.setPointerCapture(e.pointerId); } catch (err) {}
   });
 
   track.addEventListener("pointerup", function (e) {
-    if (!dragging) return;
-    dragging = false;
-    var dx = e.clientX - touchX;
-    var threshold = root.clientWidth * 0.14;
+    if (touchStartX === null) return;
+    var dx = e.clientX - touchStartX;
+    var threshold = root.clientWidth * 0.1;
     if (dx > threshold) go(-1);
     else if (dx < -threshold) go(1);
-    else if (isInstant) setTransform(pos, false);
-    else setTransform(pos, true);
-    touchX = null;
+    touchStartX = null;
   });
 
-  if (reduceMotion.matches) track.style.transition = "none";
-
-  window.addEventListener("resize", function () { setTransform(pos, false); });
+  window.addEventListener("resize", function () { applyPose(true); });
 }
