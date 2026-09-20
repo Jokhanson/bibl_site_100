@@ -877,12 +877,38 @@ a:active { color: #6A1A0E; }
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-3);
+    padding-block: var(--space-2);
   }
 
   .nav { justify-content: flex-start; }
 
+  /* История и газетный архив — во всю ширину колонки */
+  .history__body { width: 100%; }
+
+  .archive {
+    padding: var(--space-6);
+  }
+
+  .archive__years {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    font-size: var(--text-lg);
+  }
+
+  .poem p { font-size: var(--text-md); }
+
+  .memory { padding-block: var(--space-6); }
+
   .carousel__arrow {
     width: 40px;
+    height: 40px;
+  }
+
+  /* 54 точки нечитаемы на мобильном — навигация стрелками и свайпом */
+  .carousel__dots { display: none; }
+
+  .carousel__bar {
+    justify-content: flex-end;
   }
 
   .comments__form {
@@ -897,6 +923,13 @@ a:active { color: #6A1A0E; }
   .comments__submit {
     width: 100%;
     justify-content: center;
+  }
+
+  .footer__inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding-block: var(--space-6);
   }
 }
 
