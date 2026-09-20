@@ -87,8 +87,7 @@
       .from("comments")
       .insert({
         name: name,
-        text: text,
-        status: "pending"
+        text: text
       })
       .then(function (res) {
         btn.disabled = false;
@@ -98,7 +97,8 @@
         }
         nameInput.value = "";
         textInput.value = "";
-        setStatus("Спасибо! Комментарий отправлен и появится после проверки.");
+        setStatus("Спасибо! Комментарий опубликован.");
+        load();
       });
   });
 
