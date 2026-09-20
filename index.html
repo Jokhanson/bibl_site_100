@@ -573,24 +573,35 @@
 
         <section id="comments" class="comments" aria-labelledby="comments-title">
           <header class="comments__head" data-reveal>
-            <p class="kicker">Отзывы</p>
-            <h2 id="comments-title">Комментарии читателей</h2>
+            <div class="comments__eyebrow">
+              <span class="comments__seal" aria-hidden="true">100</span>
+              <p class="kicker">Книга отзывов</p>
+            </div>
+            <h2 id="comments-title">Оставить запись</h2>
             <p class="comments__lead">Если вы были участником или зрителем юбилейного торжества, поделитесь воспоминанием: кого узнали на фотографиях, что запомнилось. Ваш комментарий появится сразу.</p>
           </header>
 
           <form class="comments__form" data-comments-form novalidate>
             <div class="comments__field">
               <label for="comment-name">Ваше имя</label>
-              <input id="comment-name" name="name" type="text" maxlength="80" autocomplete="name" required>
+              <input id="comment-name" name="name" type="text" maxlength="80" autocomplete="name" placeholder="Как вас зовут" required>
             </div>
             <div class="comments__field">
               <label for="comment-text">Комментарий</label>
-              <textarea id="comment-text" name="text" rows="4" maxlength="2000" required></textarea>
+              <textarea id="comment-text" name="text" rows="4" maxlength="2000" placeholder="Поделитесь воспоминанием" required></textarea>
             </div>
-            <p class="comments__status" data-comments-status role="status" aria-live="polite"></p>
-            <button class="comments__submit" type="submit">Отправить</button>
+            <div class="comments__meta-line">
+              <p class="comments__status" data-comments-status role="status" aria-live="polite"></p>
+              <button class="comments__submit" type="submit">
+                <span aria-hidden="true">→</span><span>Отправить запись</span>
+              </button>
+            </div>
           </form>
 
+          <div class="comments__list-head">
+            <h3>Записи читателей</h3>
+            <p class="comments__count" data-comments-count></p>
+          </div>
           <ol class="comments__list" data-comments-list></ol>
         </section>
       </div>

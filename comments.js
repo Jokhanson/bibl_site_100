@@ -23,18 +23,33 @@
     });
   }
 
+  function plural(n) {
+    var a = Math.abs(n) % 100;
+    var b = a % 10;
+    if (a > 10 && a < 20) return "записей";
+    if (b > 1 && b < 5) return "записи";
+    if (b === 1) return "запись";
+    return "записей";
+  }
+
   function render(items) {
     listEl.innerHTML = "";
+    var countEl = document.querySelector("[data-comments-count]");
+    if (countEl) countEl.textContent = items.length + " " + plural(items.length);
     if (!items.length) {
       var empty = document.createElement("p");
       empty.className = "comments__empty";
-      empty.textContent = "Пока комментариев нет. Будьте первым, кто поделится воспоминанием.";
+      empty.textContent = "В книге пока нет записей. Будьте первым, кто поделится воспоминанием.";
       listEl.appendChild(empty);
       return;
     }
-    items.forEach(function (item) {
+    items.forEach(function (item, i) {
       var li = document.createElement("li");
       li.className = "comment";
+      var num = document.createElement("span");
+      num.className = "comment__number";
+      num.setAttribute("aria-hidden", "true");
+      num.textContent = String(items.length - i).padStart(2, "0");
       var meta = document.createElement("div");
       meta.className = "comment__meta";
       var name = document.createElement("span");
@@ -48,16 +63,18 @@
       var text = document.createElement("p");
       text.className = "comment__text";
       text.textContent = item.text;
+      li.appendChild(num);
       li.appendChild(meta);
       li.appendChild(text);
       listEl.appendChild(li);
     });
   }
 
-  function setStatus(msg, isError) {
+  function setStatus(msg, state) {
     if (!statusEl) return;
     statusEl.textContent = msg;
-    statusEl.classList.toggle("is-error", !!isError);
+    statusEl.classList.toggle("is-error", state === "error");
+    statusEl.classList.toggle("is-success", state === "success");
   }
 
   function load() {
@@ -78,7 +95,7 @@
     var textInput = form.querySelector("[name=\"text\"]");
     var name = (nameInput.value || "").trim();
     var text = (textInput.value || "").trim();
-    if (!name || !text) { setStatus("Заполните имя и текст комментария.", true); return; }
+    if (!name || !text) { setStatus("Заполните имя и текст комментария.", "error"); return; }
     var btn = form.querySelector(".comments__submit");
     btn.disabled = true;
     setStatus("Отправляем…");
@@ -92,12 +109,12 @@
       .then(function (res) {
         btn.disabled = false;
         if (res.error) {
-          setStatus("Не удалось отправить: " + (res.error.message || "ошибка сервера."), true);
+          setStatus("Не удалось отправить: " + (res.error.message || "ошибка сервера."), "error");
           return;
         }
         nameInput.value = "";
         textInput.value = "";
-        setStatus("Спасибо! Комментарий опубликован.");
+        setStatus("Спасибо! Комментарий опубликован.", "success");
         load();
       });
   });
