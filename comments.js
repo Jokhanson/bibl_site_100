@@ -87,7 +87,8 @@
       .from("comments")
       .insert({
         name: name,
-        text: text
+        text: text,
+        status: "approved"
       })
       .then(function (res) {
         btn.disabled = false;
