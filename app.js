@@ -226,15 +226,6 @@ function initCarousel() {
     }
   }
 
-  // Клик по боковому слайду — перейти к нему
-  nodes.forEach(function (node, i) {
-    node.addEventListener("click", function () {
-      if (node.classList.contains("is-active")) return;
-      if (parseFloat(node.style.opacity || "0") <= 0.01) return;
-      jumpTo(i % N);
-    });
-  });
-
   // Позиция без анимации
   applyPose(true);
   syncChrome();
@@ -267,14 +258,152 @@ function initCarousel() {
     try { track.setPointerCapture(e.pointerId); } catch (err) {}
   });
 
+  // Полноэкранный просмотр / переход: кликаем и свайпаем через pointer-события
+  // (setPointerCapture ретаргетит click на track, поэтому действуем на pointerup).
+  var downNode = null;
+
+  nodes.forEach(function (node) {
+    node.addEventListener("pointerdown", function () {
+      downNode = node;
+    });
+  });
+
   track.addEventListener("pointerup", function (e) {
     if (touchStartX === null) return;
     var dx = e.clientX - touchStartX;
     var threshold = root.clientWidth * 0.1;
     if (dx > threshold) go(-1);
     else if (dx < -threshold) go(1);
+    else if (downNode) {
+      if (downNode.classList.contains("is-active")) {
+        openLightbox();
+      } else if (parseFloat(downNode.style.opacity || "0") > 0.01) {
+        jumpTo(nodes.indexOf(downNode) % N);
+      }
+    }
     touchStartX = null;
+    downNode = null;
   });
+
+  // === Полноэкранный просмотр фото ===
+  var lightbox = document.querySelector("[data-lightbox]");
+  var lbFrame = document.querySelector("[data-lightbox-frame]");
+  var lbPicture = document.querySelector("[data-lightbox-picture]");
+  var lbCurrent = document.querySelector("[data-lightbox-current]");
+  var lbOpen = false;
+  var lbLastFocus = null;
+  var openLightbox = function () {};
+
+  if (lightbox && lbPicture) {
+    var lbImg = document.createElement("img");
+    lbImg.alt = "";
+    lbImg.decoding = "async";
+    lbPicture.appendChild(lbImg);
+
+    function lbUpdateImage() {
+      var node = nodes[pos];
+      var imgEl = node ? node.querySelector("img") : null;
+      lbImg.alt = imgEl ? imgEl.alt : "Фото " + (index + 1);
+      lbPicture.querySelectorAll("source").forEach(function (s) { s.remove(); });
+      var sourceEl = node ? node.querySelector("picture source") : null;
+      if (sourceEl && sourceEl.srcset) {
+        var sup = document.createElement("source");
+        sup.type = "image/webp";
+        sup.srcset = sourceEl.srcset;
+        lbPicture.insertBefore(sup, lbImg);
+      }
+      lbImg.src = imgEl ? imgEl.src : "";
+      if (lbCurrent) lbCurrent.textContent = String(index + 1);
+    }
+
+    function lbClose() {
+      if (!lbOpen) return;
+      lbOpen = false;
+      lightbox.classList.remove("is-open");
+      lightbox.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("is-locked");
+      document.documentElement.classList.remove("is-locked");
+      if (lbLastFocus && lbLastFocus.focus) lbLastFocus.focus();
+      paused = root.matches(":hover");
+    }
+
+    function lbGo(dir) {
+      go(dir);
+      lbUpdateImage();
+    }
+
+    function openLightbox() {
+      if (lbOpen) return;
+      if (!nodes[pos]) return;
+      if (nodes[pos].classList.contains("is-empty")) return;
+      lbOpen = true;
+      paused = true;
+      lightbox.classList.add("is-open");
+      lightbox.setAttribute("aria-hidden", "false");
+      document.body.classList.add("is-locked");
+      document.documentElement.classList.add("is-locked");
+      lbLastFocus = document.activeElement;
+      lbUpdateImage();
+      var closeBtn = lightbox.querySelector("[data-lightbox-close]");
+      if (closeBtn && closeBtn.focus) closeBtn.focus();
+    }
+
+    lbFrame.addEventListener("click", function (e) {
+      if (lbJustSwiped) { lbJustSwiped = false; return; }
+      if (e.target === lbPicture || e.target === lbImg) return;
+      lbClose();
+    });
+
+    var lbCloseBtns = lightbox.querySelectorAll("[data-lightbox-close]");
+    lbCloseBtns.forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (lbJustSwiped) { lbJustSwiped = false; return; }
+        lbClose();
+      });
+    });
+
+    var lbPrevBtn = lightbox.querySelector("[data-lightbox-prev]");
+    var lbNextBtn = lightbox.querySelector("[data-lightbox-next]");
+    if (lbPrevBtn) lbPrevBtn.addEventListener("click", function () { lbGo(-1); });
+    if (lbNextBtn) lbNextBtn.addEventListener("click", function () { lbGo(1); });
+
+    // Свайп в полноэкранном режиме
+    // touch-action: none + запрет перетаскивания картинки не дают браузеру
+    // превратить жест в скролл/драг, поэтому лайтбокс (fixed на весь экран)
+    // всегда получает pointerup — отдельный pointer-capture не нужен
+    // и ломал бы клики по кнопкам внутри лайтбокса.
+    var lbTouch = null;
+    var lbJustSwiped = false;
+    lightbox.addEventListener("pointerdown", function (e) {
+      lbTouch = e.clientX;
+    });
+    lightbox.addEventListener("pointerup", function (e) {
+      if (lbTouch === null) return;
+      var dx = e.clientX - lbTouch;
+      lbTouch = null;
+      var th = window.innerWidth * 0.12;
+      if (dx > th) { lbJustSwiped = true; lbGo(-1); }
+      else if (dx < -th) { lbJustSwiped = true; lbGo(1); }
+    });
+
+    // Клавиатура (глобально — фокус не обязан быть внутри лайтбокса)
+    document.addEventListener("keydown", function (e) {
+      if (!lbOpen) return;
+      if (e.key === "Escape") { e.preventDefault(); lbClose(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); lbGo(-1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); lbGo(1); }
+      else if (e.key === "Tab") {
+        var focusables = lightbox.querySelectorAll("button");
+        if (focusables.length) {
+          var first = focusables[0];
+          var last = focusables[focusables.length - 1];
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
+    });
+  }
 
   window.addEventListener("resize", function () { applyPose(true); });
 }
