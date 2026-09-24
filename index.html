@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="favicon/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Prata&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +20,7 @@
 
   <header class="masthead">
     <div class="container masthead__inner">
-      <a class="brand" href="index.html">Черниговка</a>
+      <a class="brand" href="index.html" aria-label="На главную"><img class="brand__icon" src="favicon/favicon-512.png" alt="" width="32" height="32"></a>
       <nav class="nav" aria-label="Разделы страницы">
         <a href="#history">История</a>
         <a href="#carousel">Фото</a>
@@ -32,6 +32,7 @@
 
   <main id="content">
     <header class="page-head">
+      <img class="page-head__bg" src="фон-пано.png" alt="" aria-hidden="true" fetchpriority="high">
       <div class="container">
         <span class="page-head__emblem" aria-hidden="true">100</span>
         <p class="kicker">К вековому юбилею села</p>
@@ -481,7 +482,7 @@
 
           <div class="lightbox" data-lightbox role="dialog" aria-modal="true" aria-label="Просмотр фотографий" aria-hidden="true">
             <div class="lightbox__backdrop" data-lightbox-close></div>
-            <button class="lightbox__close" type="button" data-lightbox-close aria-label="Закрыть">×</button>
+            <button class="lightbox__close" type="button" data-lightbox-close aria-label="Закрыть"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
             <div class="lightbox__frame" data-lightbox-frame>
               <picture class="lightbox__picture" data-lightbox-picture></picture>
             </div>

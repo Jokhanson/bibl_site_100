@@ -37,7 +37,133 @@ var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   initReadingProgress();
   initCarousel();
+  initMemoryToggle();
+  initHistoryToggle();
 })();
+
+function initHistoryToggle() {
+  var story = document.querySelector(".history__story");
+  if (!story) return;
+  var paras = Array.prototype.slice.call(story.querySelectorAll("p"));
+  if (paras.length < 2) return;
+
+  var cutIdx = paras.findIndex(function (p) {
+    return p.textContent.replace(/\s+/g, " ").trim().indexOf("Возможно, на старых фотографиях") === 0;
+  });
+  if (cutIdx === -1) return;
+
+  var shown = paras.slice(0, cutIdx + 1);
+  var hidden = paras.slice(cutIdx + 1);
+  if (!hidden.length) return;
+
+  hidden.forEach(function (p) { p.setAttribute("data-history-hidden", ""); });
+
+  var walker = story;
+  while (walker = walker.nextElementSibling) {
+    walker.setAttribute("data-history-hidden", "");
+  }
+
+  var bar = document.createElement("div");
+  bar.className = "history__more";
+
+  var toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "history__toggle";
+  toggle.id = "history-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", "history-story");
+  toggle.setAttribute("aria-label", "Читать дальше");
+  toggle.innerHTML = '<span class="history__toggle__text">Читать дальше</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>';
+
+  story.id = "history-story";
+  bar.appendChild(toggle);
+  shown[shown.length - 1].insertAdjacentElement("afterend", bar);
+  story.classList.add("is-collapsed");
+  document.documentElement.classList.add("is-history-collapsed");
+
+  function showPreview() {
+    document.documentElement.classList.add("is-history-collapsed");
+    story.classList.add("is-collapsed");
+    toggle.querySelector(".history__toggle__text").textContent = "Читать дальше";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Читать дальше");
+  }
+
+  function showFull() {
+    document.documentElement.classList.remove("is-history-collapsed");
+    story.classList.remove("is-collapsed");
+    toggle.querySelector(".history__toggle__text").textContent = "Свернуть";
+    toggle.setAttribute("aria-expanded", "true");
+    toggle.setAttribute("aria-label", "Свернуть");
+  }
+
+  toggle.addEventListener("click", function () {
+    if (story.classList.contains("is-collapsed")) showFull();
+    else showPreview();
+  });
+}
+
+function initMemoryToggle() {
+  var LIMIT = 145;
+  var memories = Array.prototype.slice.call(document.querySelectorAll(".memory"));
+  memories.forEach(function (memory, idx) {
+    var textEl = memory.querySelector(".memory__text");
+    if (!textEl) return;
+    var paras = Array.prototype.slice.call(textEl.querySelectorAll("p"));
+    if (!paras.length) return;
+
+    var full = paras.map(function (p) { return p.textContent.replace(/\s+/g, " ").trim(); }).join(" ");
+    if (full.length <= LIMIT) return;
+
+    var cut = full.slice(0, LIMIT);
+    var sp = cut.lastIndexOf(" ");
+    if (sp > LIMIT * 0.5) {
+      cut = cut.slice(0, sp);
+    } else {
+      var next = full.indexOf(" ", LIMIT);
+      if (next !== -1 && next - LIMIT < 24) cut = full.slice(0, next);
+    }
+    cut = cut.trim();
+
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "memory__toggle";
+    toggle.id = "memory-toggle-" + idx;
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", "memory-text-" + idx);
+    toggle.setAttribute("aria-label", "Развернуть воспоминание");
+    toggle.innerHTML = '<span class="memory__toggle__text">Читать дальше</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>';
+
+    textEl.id = "memory-text-" + idx;
+    memory.appendChild(toggle);
+
+    var preview = document.createElement("p");
+    preview.className = "memory__preview";
+    preview.textContent = cut + "…";
+
+    textEl.insertBefore(preview, paras[0]);
+    memory.classList.add("is-collapsed");
+
+    function showPreview() {
+      memory.classList.add("is-collapsed");
+      toggle.querySelector(".memory__toggle__text").textContent = "Читать дальше";
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-label", "Развернуть воспоминание");
+    }
+
+    function showFull() {
+      memory.classList.remove("is-collapsed");
+      toggle.querySelector(".memory__toggle__text").textContent = "Свернуть";
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.setAttribute("aria-label", "Свернуть воспоминание");
+    }
+
+    toggle.addEventListener("click", function () {
+      if (memory.classList.contains("is-collapsed")) showFull();
+      else showPreview();
+    });
+  });
+}
 
 function initReadingProgress() {
   var bar = document.querySelector(".progress__bar");
