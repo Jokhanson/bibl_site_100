@@ -39,7 +39,76 @@ var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   initCarousel();
   initMemoryToggle();
   initHistoryToggle();
+  initAnchorScroll();
 })();
+
+function initAnchorScroll() {
+  if (reduceMotion.matches) return;
+  var scrollToken = null;
+
+  function stopAnimation() {
+    if (scrollToken) {
+      cancelAnimationFrame(scrollToken);
+      scrollToken = null;
+    }
+    window.removeEventListener("wheel", stopAnimation, { passive: true });
+    window.removeEventListener("touchstart", stopAnimation, { passive: true });
+    window.removeEventListener("keydown", cancelOnKey, { passive: true });
+  }
+
+  function cancelOnKey(e) {
+    var k = e.key;
+    if (k === "Tab" || k === "Enter" || k === " " || k.indexOf("Arrow") === 0) {
+      stopAnimation();
+    }
+  }
+
+  function scrollToTarget(target) {
+    stopAnimation();
+    var startY = window.scrollY;
+    var targetY = window.scrollY + target.getBoundingClientRect().top - 120;
+    var maxY = document.documentElement.scrollHeight - window.innerHeight;
+    targetY = Math.max(0, Math.min(targetY, maxY));
+
+    var dist = targetY - startY;
+    if (Math.abs(dist) < 2) return;
+
+    var dur = Math.min(900, Math.max(260, Math.abs(dist) * 0.45));
+    var t0 = null;
+
+    function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur);
+      var eased = 1 - Math.pow(1 - p, 4);
+      window.scrollTo(0, startY + dist * eased);
+      if (p < 1) {
+        scrollToken = requestAnimationFrame(frame);
+      } else {
+        window.scrollTo(0, startY + dist);
+        stopAnimation();
+      }
+    }
+
+    window.addEventListener("wheel", stopAnimation, { passive: true });
+    window.addEventListener("touchstart", stopAnimation, { passive: true });
+    window.addEventListener("keydown", cancelOnKey, { passive: true });
+    scrollToken = requestAnimationFrame(frame);
+  }
+
+  document.querySelectorAll('a[href^="#"]').forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      if (link.classList.contains("skip-link") || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      var id = link.getAttribute("href").slice(1);
+      var target = document.getElementById(id);
+      if (!target) return;
+      e.preventDefault();
+      scrollToTarget(target);
+      history.replaceState(null, "", "#" + id);
+    });
+  });
+}
 
 function initHistoryToggle() {
   var story = document.querySelector(".history__story");
@@ -167,17 +236,25 @@ function initMemoryToggle() {
 
 function initReadingProgress() {
   var bar = document.querySelector(".progress__bar");
-  if (!bar) return;
+  if (!bar || reduceMotion.matches) return;
+  var ticking = false;
 
   function update() {
     var doc = document.documentElement;
     var max = doc.scrollHeight - window.innerHeight;
-    var ratio = max > 0 ? (window.scrollY || doc.scrollTop) / max : 0;
-    bar.style.width = (ratio * 100).toFixed(2) + "%";
+    var p = max > 0 ? (window.scrollY || doc.scrollTop) / max : 0;
+    bar.style.transform = "scaleX(" + p.toFixed(4) + ")";
+    ticking = false;
   }
 
-  window.addEventListener("scroll", update, { passive: true });
-  window.addEventListener("resize", update);
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
   update();
 }
 
@@ -200,6 +277,7 @@ function initCarousel() {
   var total = N * 3;
   var pos = N;
   var index = 0;
+  var dragFrac = 0;
   var DURATION = 800;
   var timer = null;
   var autoTimer = null;
@@ -248,7 +326,7 @@ function initCarousel() {
     }
     var dir = off < 0 ? -1 : 1;
     var w = slideW();
-    var tx = cfg.t * w * dir;
+    var tx = cfg.t * w * dir + dragFrac * w;
     var ry = -cfg.ry * dir;
     if (reduceMotion.matches) ry = 0;
     return {
@@ -280,6 +358,18 @@ function initCarousel() {
     }
   }
 
+  function applyDragPose() {
+    nodes.forEach(function (node, i) {
+      var p = nodeStyleAt(i);
+      node.style.transform = p.transform;
+      node.style.opacity = p.opacity;
+      node.style.zIndex = p.zIndex;
+      node.style.filter = p.filter;
+      node.style.pointerEvents = p.visible ? "" : "none";
+      node.classList.toggle("is-active", p.active);
+    });
+  }
+
   function syncChrome() {
     if (currentEl) currentEl.textContent = String(index + 1);
     if (dotsWrap) {
@@ -294,6 +384,18 @@ function initCarousel() {
     else if (pos < N) pos += N;
     applyPose(true);
   }
+
+  function beginAnimating() {
+    track.classList.add("is-animating");
+    if (wcTimer) { window.clearTimeout(wcTimer); wcTimer = null; }
+  }
+
+  function endAnimating() {
+    track.classList.remove("is-animating");
+    wcTimer = null;
+  }
+
+  var wcTimer = null;
 
   function fitWithinTrack(dir) {
     if (dir > 0 && pos > total - 2) {
@@ -318,9 +420,12 @@ function initCarousel() {
     fitWithinTrack(dir);
     pos += dir;
     index = (index + dir + N) % N;
+    beginAnimating();
     applyPose(isInstant);
     syncChrome();
     scheduleSettle();
+    if (isInstant) endAnimating();
+    else wcTimer = window.setTimeout(endAnimating, DURATION + 200);
   }
 
   function jumpTo(i) {
@@ -330,9 +435,12 @@ function initCarousel() {
     while (pos < 0) pos += N;
     while (pos >= total) pos -= N;
     index = i;
+    beginAnimating();
     applyPose(!isInstant);
     syncChrome();
     scheduleSettle();
+    if (isInstant) endAnimating();
+    else wcTimer = window.setTimeout(endAnimating, DURATION + 200);
   }
 
   if (prevBtn) prevBtn.addEventListener("click", function () { go(-1); });
@@ -376,16 +484,13 @@ function initCarousel() {
     root.addEventListener("focusout", function () { paused = false; });
   }
 
-  // Свайпы
-  var touchStartX = null;
-
-  track.addEventListener("pointerdown", function (e) {
-    touchStartX = e.clientX;
-    try { track.setPointerCapture(e.pointerId); } catch (err) {}
-  });
-
-  // Полноэкранный просмотр / переход: кликаем и свайпаем через pointer-события
-  // (setPointerCapture ретаргетит click на track, поэтому действуем на pointerup).
+  // Свайпы: лента следует за пальцем 1:1, отпускание — инерционный долёт или откат
+  var dragStartX = null;
+  var dragStartY = null;
+  var lastMoveX = 0;
+  var lastMoveT = 0;
+  var velocity = 0;
+  var dragging = false;
   var downNode = null;
 
   nodes.forEach(function (node) {
@@ -394,9 +499,71 @@ function initCarousel() {
     });
   });
 
+  track.addEventListener("pointerdown", function (e) {
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    lastMoveX = e.clientX;
+    lastMoveT = performance.now();
+    velocity = 0;
+    try { track.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+
+  track.addEventListener("pointermove", function (e) {
+    if (dragStartX === null) return;
+    var dx = e.clientX - dragStartX;
+    if (!dragging) {
+      var dy = e.clientY - dragStartY;
+      if (e.pointerType === "mouse") return;
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dy) > Math.abs(dx)) { dragStartX = null; return; }
+      dragging = true;
+      paused = true;
+      beginAnimating();
+      track.classList.add("is-dragging");
+    }
+    var now = performance.now();
+    var dt = now - lastMoveT;
+    if (dt > 0) {
+      var v = (e.clientX - lastMoveX) / dt;
+      velocity = 0.75 * velocity + 0.25 * v;
+    }
+    lastMoveX = e.clientX;
+    lastMoveT = now;
+    dragFrac = Math.max(-1.2, Math.min(1.2, dx / slideW()));
+    applyDragPose();
+  });
+
   track.addEventListener("pointerup", function (e) {
-    if (touchStartX === null) return;
-    var dx = e.clientX - touchStartX;
+    if (dragStartX === null) return;
+    var dx = e.clientX - dragStartX;
+    dragStartX = null;
+
+    if (dragging) {
+      dragging = false;
+      track.classList.remove("is-dragging");
+      var frac = dragFrac;
+      dragFrac = 0;
+      var dir = 0;
+      if (Math.abs(frac) > 0.18) dir = frac > 0 ? -1 : 1;
+      else if (velocity > 0.5 && frac < -0.02) dir = 1;
+      else if (velocity < -0.5 && frac > 0.02) dir = -1;
+      velocity = 0;
+      paused = root.matches(":hover");
+      if (dir) {
+        pos += dir;
+        index = (index + dir + N) % N;
+        applyPose(false);
+        syncChrome();
+        scheduleSettle();
+        wcTimer = window.setTimeout(endAnimating, DURATION + 200);
+      } else {
+        applyPose(false);
+        wcTimer = window.setTimeout(endAnimating, DURATION + 200);
+      }
+      downNode = null;
+      return;
+    }
+
     var threshold = root.clientWidth * 0.1;
     if (dx > threshold) go(-1);
     else if (dx < -threshold) go(1);
@@ -407,8 +574,19 @@ function initCarousel() {
         jumpTo(nodes.indexOf(downNode) % N);
       }
     }
-    touchStartX = null;
     downNode = null;
+  });
+
+  track.addEventListener("pointercancel", function () {
+    if (!dragging) return;
+    dragging = false;
+    dragStartX = null;
+    track.classList.remove("is-dragging");
+    dragFrac = 0;
+    velocity = 0;
+    paused = root.matches(":hover");
+    applyPose(false);
+    wcTimer = window.setTimeout(endAnimating, DURATION + 200);
   });
 
   // === Полноэкранный просмотр фото ===
@@ -494,23 +672,78 @@ function initCarousel() {
     if (lbPrevBtn) lbPrevBtn.addEventListener("click", function () { lbGo(-1); });
     if (lbNextBtn) lbNextBtn.addEventListener("click", function () { lbGo(1); });
 
-    // Свайп в полноэкранном режиме
+    // Свайп в полноэкранном режиме: изображение следует за пальцем 1:1,
+    // отпускание — инерционный долёт с въездом следующего кадра.
     // touch-action: none + запрет перетаскивания картинки не дают браузеру
-    // превратить жест в скролл/драг, поэтому лайтбокс (fixed на весь экран)
-    // всегда получает pointerup — отдельный pointer-capture не нужен
-    // и ломал бы клики по кнопкам внутри лайтбокса.
-    var lbTouch = null;
+    // превратить жест в скролл/драг.
+    var lbDrag = null;
     var lbJustSwiped = false;
+    var lbSettleTimer = null;
+
     lightbox.addEventListener("pointerdown", function (e) {
-      lbTouch = e.clientX;
+      if (e.pointerType === "mouse" && e.target.closest("button")) return;
+      if (reduceMotion.matches) return;
+      lbDrag = { x: e.clientX, y: e.clientY };
+      if (lbSettleTimer) { window.clearTimeout(lbSettleTimer); lbSettleTimer = null; }
     });
+
+    lightbox.addEventListener("pointermove", function (e) {
+      if (!lbDrag) return;
+      var dx = e.clientX - lbDrag.x;
+      var dy = e.clientY - lbDrag.y;
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dy) > Math.abs(dx)) { lbDrag = null; return; }
+      var w = window.innerWidth;
+      var k = Math.max(-0.85, Math.min(0.85, dx / w));
+      lbImg.style.transition = "none";
+      lbImg.style.transform = "translateX(" + (k * w).toFixed(1) + "px)";
+    });
+
+    function lbFlyOut(dir) {
+      var w = window.innerWidth;
+      lbImg.style.transition = "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)";
+      lbImg.style.transform = "translateX(" + (-dir * w) + "px)";
+      lbSettleTimer = window.setTimeout(function () {
+        lbGo(dir);
+        lbSettleTimer = null;
+        lbImg.style.transition = "";
+        lbImg.style.transform = "translateX(" + (dir * w) + "px)";
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            lbImg.style.transition = "transform 360ms cubic-bezier(0.22, 1, 0.36, 1)";
+            lbImg.style.transform = "translateX(0px)";
+            lbSettleTimer = window.setTimeout(function () {
+              lbImg.style.transition = "";
+              lbSettleTimer = null;
+            }, 380);
+          });
+        });
+      }, 340);
+    }
+
+    function lbSpringBack() {
+      lbImg.style.transition = "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)";
+      lbImg.style.transform = "translateX(0px)";
+      lbSettleTimer = window.setTimeout(function () {
+        lbImg.style.transition = "";
+        lbSettleTimer = null;
+      }, 340);
+    }
+
     lightbox.addEventListener("pointerup", function (e) {
-      if (lbTouch === null) return;
-      var dx = e.clientX - lbTouch;
-      lbTouch = null;
-      var th = window.innerWidth * 0.12;
-      if (dx > th) { lbJustSwiped = true; lbGo(-1); }
-      else if (dx < -th) { lbJustSwiped = true; lbGo(1); }
+      if (!lbDrag) return;
+      var dx = e.clientX - lbDrag.x;
+      lbDrag = null;
+      var w = window.innerWidth;
+      if (dx > w * 0.12) { lbJustSwiped = true; lbFlyOut(-1); }
+      else if (dx < -w * 0.12) { lbJustSwiped = true; lbFlyOut(1); }
+      else lbSpringBack();
+    });
+
+    lightbox.addEventListener("pointercancel", function () {
+      if (!lbDrag) return;
+      lbDrag = null;
+      lbSpringBack();
     });
 
     // Клавиатура (глобально — фокус не обязан быть внутри лайтбокса)

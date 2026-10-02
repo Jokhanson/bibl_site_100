@@ -52,8 +52,10 @@
 
   /* Motion */
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 160ms;
   --duration-med: 320ms;
+  --reveal-dur: 380ms;
 }
 
 /* ============================================================
@@ -61,15 +63,9 @@
    ============================================================ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
 
-[id] {
-  scroll-margin-top: calc(var(--space-4) * 6);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-}
+[id] { scroll-margin-top: 120px; }
 
 body {
   font-family: var(--font-body);
@@ -105,6 +101,7 @@ a {
   text-underline-offset: 3px;
   transition: color var(--duration-fast) var(--ease),
               text-decoration-color var(--duration-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
 }
 
 a:hover { color: var(--accent-strong); text-decoration-color: transparent; }
@@ -141,20 +138,27 @@ a:active { color: var(--accent-deep); }
 .progress__bar {
   display: block;
   height: 100%;
-  width: 0;
+  width: 100%;
   background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  will-change: transform;
 }
 
 /* ============================================================
    Мастхед + навигация
    ============================================================ */
 .masthead {
-  border-bottom: 1px solid var(--hairline);
-  background: var(--paper);
+  background: rgba(250, 247, 242, 0.78);
   position: sticky;
   top: 0;
   z-index: 50;
-  backdrop-filter: saturate(1.4) blur(6px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  backdrop-filter: saturate(1.6) blur(16px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .masthead { background: var(--paper); border-bottom: 1px solid var(--hairline); }
 }
 
 .masthead__inner {
@@ -196,6 +200,7 @@ a:active { color: var(--accent-deep); }
   border-bottom: 1px solid transparent;
   transition: color var(--duration-fast) var(--ease),
               border-color var(--duration-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav a:hover { color: var(--accent); border-color: var(--accent); }
@@ -337,6 +342,14 @@ a:active { color: var(--accent-deep); }
               opacity 800ms var(--ease),
               filter 800ms var(--ease),
               box-shadow 400ms var(--ease);
+}
+
+.carousel__track.is-animating .carousel__slide {
+  will-change: transform, opacity;
+}
+
+.carousel__track.is-dragging .carousel__slide {
+  transition: none;
   will-change: transform, opacity;
 }
 
@@ -412,6 +425,7 @@ a:active { color: var(--accent-deep); }
   color: var(--ink);
   cursor: pointer;
   transform: translateY(-50%);
+  -webkit-tap-highlight-color: transparent;
   transition: color var(--duration-fast) var(--ease),
               background-color var(--duration-fast) var(--ease),
               transform var(--duration-fast) var(--ease);
@@ -423,7 +437,7 @@ a:active { color: var(--accent-deep); }
   background: var(--paper);
   transform: translateY(-50%) scale(1.06);
 }
-.carousel__arrow:active { color: var(--accent-strong); }
+.carousel__arrow:active { transform: translateY(-50%) scale(0.94); }
 
 .carousel__arrow--prev { left: 8px; }
 .carousel__arrow--next { right: 8px; }
@@ -457,10 +471,12 @@ a:active { color: var(--accent-deep); }
   border-radius: 50%;
   background: var(--hairline-strong);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color var(--duration-fast) var(--ease);
 }
 
 .carousel__dot:hover { background: var(--accent-soft); }
+.carousel__dot:active { transform: scale(1.4); }
 .carousel__dot.is-active { background: var(--accent); }
 
 .carousel__counter {
@@ -480,7 +496,9 @@ a:active { color: var(--accent-deep); }
   place-items: center;
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--duration-med) var(--ease),
+  transform: scale(0.96) translateY(8px);
+  transition: opacity var(--duration-med) var(--ease-out),
+              transform var(--duration-med) var(--ease-out),
               visibility 0s linear var(--duration-med);
   touch-action: none;
   user-select: none;
@@ -490,7 +508,9 @@ a:active { color: var(--accent-deep); }
 .lightbox.is-open {
   opacity: 1;
   visibility: visible;
-  transition: opacity var(--duration-med) var(--ease);
+  transform: scale(1) translateY(0);
+  transition: opacity var(--duration-med) var(--ease-out),
+              transform var(--duration-med) var(--ease-out);
 }
 
 .lightbox__backdrop {
@@ -513,6 +533,10 @@ a:active { color: var(--accent-deep); }
   place-items: center;
 }
 
+.lightbox__picture.is-dragging {
+  transition: opacity 200ms var(--ease-out);
+}
+
 .lightbox__picture img {
   max-width: 100%;
   max-height: 88vh;
@@ -521,6 +545,8 @@ a:active { color: var(--accent-deep); }
   object-fit: contain;
   border-radius: var(--radius-card);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  transition: transform var(--duration-med) var(--ease-out),
+              opacity var(--duration-med) var(--ease-out);
   -webkit-user-drag: none;
   user-select: none;
 }
@@ -552,14 +578,18 @@ a:active { color: var(--accent-deep); }
   background: rgba(28, 26, 23, 0.4);
   color: var(--paper);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color var(--duration-fast) var(--ease),
-              color var(--duration-fast) var(--ease);
+              color var(--duration-fast) var(--ease),
+              transform 100ms ease-out;
 }
 
 .lightbox__arrow:hover {
   background: rgba(176, 58, 44, 0.85);
   color: #fff;
 }
+
+.lightbox__arrow:active { transform: translateY(-50%) scale(0.92); }
 
 .lightbox__arrow--prev { left: var(--space-4); }
 .lightbox__arrow--next { right: var(--space-4); }
@@ -581,9 +611,10 @@ a:active { color: var(--accent-deep); }
   font-size: var(--text-xl);
   line-height: 1;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color var(--duration-fast) var(--ease),
               color var(--duration-fast) var(--ease),
-              transform var(--duration-fast) var(--ease);
+              transform 100ms ease-out;
 }
 
 .lightbox__close:hover {
@@ -591,6 +622,8 @@ a:active { color: var(--accent-deep); }
   color: #fff;
   transform: scale(1.06);
 }
+
+.lightbox__close:active { transform: scale(0.94); }
 
 .lightbox__counter {
   position: absolute;
@@ -698,13 +731,17 @@ html.is-history-collapsed [data-history-hidden] {
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease),
               color var(--duration-fast) var(--ease),
-              border-color var(--duration-fast) var(--ease);
+              border-color var(--duration-fast) var(--ease),
+              transform 100ms ease-out;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .history__toggle:hover {
   background: var(--accent);
   color: var(--paper);
 }
+
+.history__toggle:active { transform: scale(0.97); }
 
 .history__toggle:focus-visible {
   outline: 2px solid var(--accent);
@@ -891,13 +928,17 @@ html.is-history-collapsed [data-history-hidden] {
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease),
               color var(--duration-fast) var(--ease),
-              border-color var(--duration-fast) var(--ease);
+              border-color var(--duration-fast) var(--ease),
+              transform 100ms ease-out;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .memory__toggle:hover {
   background: var(--accent);
   color: var(--paper);
 }
+
+.memory__toggle:active { transform: scale(0.97); }
 
 .memory__toggle:focus-visible {
   outline: 2px solid var(--accent);
@@ -1064,7 +1105,8 @@ html.is-history-collapsed [data-history-hidden] {
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease),
               border-color var(--duration-fast) var(--ease),
-              transform var(--duration-fast) var(--ease);
+              transform 100ms ease-out;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .comments__submit:hover {
@@ -1072,7 +1114,7 @@ html.is-history-collapsed [data-history-hidden] {
   border-color: var(--accent-strong);
 }
 
-.comments__submit:active { transform: translateY(1px); }
+.comments__submit:active { transform: scale(0.97); }
 .comments__submit:disabled { opacity: 0.6; cursor: default; }
 
 .comments__list-head {
@@ -1156,7 +1198,8 @@ html.is-history-collapsed [data-history-hidden] {
   .js [data-reveal] {
     opacity: 0;
     transform: translateY(16px);
-    transition: opacity 560ms var(--ease), transform 560ms var(--ease);
+    transition: opacity var(--reveal-dur) var(--ease-out),
+                transform var(--reveal-dur) var(--ease-out);
   }
 
   .js [data-reveal].is-in {
@@ -1261,4 +1304,23 @@ html.is-history-collapsed [data-history-hidden] {
 
 @media (prefers-reduced-motion: reduce) {
   .carousel__track { transition: none; }
+}
+
+/* Reduced-transparency: стекло мастхеда становится матовым */
+@media (prefers-reduced-transparency: reduce) {
+  .masthead {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Reduced-motion: guard поверх всех ранее объявленных transition */
+@media (prefers-reduced-motion: reduce) {
+  a, .nav a, .history__toggle, .memory__toggle,
+  .comments__submit, .carousel__arrow, .carousel__dot,
+  .lightbox__arrow, .lightbox__close, .lightbox,
+  .lightbox__picture img {
+    transition: none;
+  }
 }
